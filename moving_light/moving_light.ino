@@ -32,6 +32,7 @@ typedef struct
   float speed; // pixel per millisecond
 } Player;
 Player player;
+const float MAX_PLAYER_SPEED = 0.01; // px per millisecond
 
 // a Bullet
 typedef struct 
@@ -40,15 +41,15 @@ typedef struct
   bool active;
   float speed; // pixel per millisecond
 } Bullet;
-const int numBullets = 8;
-Bullet bullets[numBullets];
+const int MAX_BULLETS = 4;
+Bullet bullets[MAX_BULLETS];
 
 // store current inputs
 Position newPosition;
+int moveX;
 bool newBtnState; // true -> pressed, false -> not pressed
 
 // Refresh interval at which to set our game loop 
-// To avoid having the game run at different speeds depending on hardware
 const int refreshInterval  = 100; // Redraw 10 times per second
 // When was the last update call?
 unsigned long lastUpdateTime;
@@ -74,6 +75,12 @@ void setup() {
   // Setup player
   player.speed = 0.001;
 
+  // if analog input pin 4 is unconnected, random analog
+  // noise will cause the call to randomSeed() to generate
+  // different seed numbers each time the sketch runs.
+  // randomSeed() will then shuffle the random function.
+  randomSeed(analogRead(4));
+
   // initialize game loop
   lastUpdateTime = millis();
   lastRenderTime = lastUpdateTime;
@@ -86,19 +93,19 @@ void updateGame(unsigned long elapsed) {
 
 void updatePlayerPosition(unsigned long elapsed)
 {
-  if ((newPosition.x != player.position.x) || (newPosition.y != player.position.y)) {
-    player.position.x = newPosition.x;
-    player.position.y = 0; // instead of newY, as i want the player to stick to the bottom of the screen
-  }
+  // calculate moveSpeed per millisecond
+  float deltaX = MAX_PLAYER_SPEED/512.0 * moveX;
+  // multiply with elapsed milliseconds to get final delta
+  deltaX *= elapsed;
+  player.position.x = constrain(player.position.x + deltaX, 0.0, 7.0);
 }
 
 void updateBulletPosition(unsigned long elapsed)
 {
-  for (int i=0; i < numBullets; i++) {
+  for (int i=0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       float deltaY = bullets[i].speed * elapsed;
       bullets[i].position.y += deltaY;
-      // Serial.println(bullets[i].position.y);
       if (bullets[i].position.y > 7) {
         // bullet left screen
         bullets[i].active = false;
@@ -122,7 +129,7 @@ void draw()
   */ 
   lc.setLed(0, round(player.position.x), round(player.position.y), true);
 
-  for (int i=0; i < numBullets; i++) {
+  for (int i=0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       lc.setLed(0, round(bullets[i].position.x), round(bullets[i].position.y), true);
     }
@@ -137,26 +144,28 @@ void checkInputs() {
   // Any button pressed?
   newBtnState = joyBtn.fell();
   
-  // Joystick input, mapped to 8x8 matrix
-  newPosition.x = analogRead(JoyX_pin)/128;
-  newPosition.y = analogRead(JoyY_pin)/128;
-  
+  // vertical position, mapped to 8x8 matrix
+  // newPosition.y = analogRead(JoyY_pin)/128;
+  moveX = analogRead(JoyX_pin) - 512;
 }
 
 void checkActions() {
   if (newBtnState) {
-    // player pressed button. Check current X position to see if there is already a bullet active
-    int column = round(player.position.x);
-    
-    if (bullets[column].active) {
-      // cancel current bullet
-      bullets[column].active = false;
-    } else {
+    int freeBulletIndex = -1;
+    // player wants to fire bullet. Check if there is a slot available.
+    for (int i = 0; i < MAX_BULLETS; i++) {
+      if (!bullets[i].active){
+        freeBulletIndex = i;
+        break;
+      }
+    }
+    if (freeBulletIndex > -1) {
       // launch new bullet;
-      bullets[column].active = true;
-      bullets[column].speed = 0.002; // px per millisecond
-      bullets[column].position.x = player.position.x;
-      bullets[column].position.y = player.position.y + 1;
+      float speedRandomizer = random(0,3)/1000.0;
+      bullets[freeBulletIndex].active = true;
+      bullets[freeBulletIndex].speed = 0.002 + speedRandomizer; // px per millisecond
+      bullets[freeBulletIndex].position.x = player.position.x;
+      bullets[freeBulletIndex].position.y = player.position.y + 1;
     }
   }
 }
