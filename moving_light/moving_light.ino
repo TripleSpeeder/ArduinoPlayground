@@ -34,6 +34,7 @@ typedef struct
   Position position;
   unsigned int score; 
   float speed; // pixel per millisecond
+  unsigned long lastBulletTime; // track when the last bullet was shot
 } Player;
 Player player;
 const float MAX_PLAYER_SPEED = 0.01; // px per millisecond
@@ -47,6 +48,7 @@ typedef struct
 } Bullet;
 const int MAX_BULLETS = 6;
 Bullet bullets[MAX_BULLETS];
+const int BULLET_COOLDOWN = 250; // milliseconds between shots
 
 // a target
 typedef struct
@@ -101,7 +103,7 @@ void setup() {
   target.topLeft.y = 7;
   target.bottomRight.x = 3;
   target.bottomRight.y = 7;
-  target.speed = 0.006;
+  target.speed = 0.003;
   target.direction = 1.0; 
 
   // initialize game loop
@@ -197,9 +199,6 @@ void draw()
   for (int x=(round(target.topLeft.x)); x <= (round(target.bottomRight.x)); x++) {
     lc.setLed(0, x, round(target.bottomRight.y), true);
   }
-  //for (int i=0; i < target.width; i++) {
-  //  lc.setLed(0, round(target.position.x)+i, round(target.position.y), true);
-  //}
 }
 
 void checkInputs() {
@@ -217,22 +216,27 @@ void checkInputs() {
 
 void checkActions() {
   if (newBtnState) {
-    int freeBulletIndex = -1;
-    // player wants to fire bullet. Check if there is a slot available.
-    for (int i = 0; i < MAX_BULLETS; i++) {
-      if (!bullets[i].active){
-        freeBulletIndex = i;
-        break;
+    // player wants to fire bullet. 
+    // First check if cooldown period is over
+    unsigned long now = millis();
+    if ((now - player.lastBulletTime) > BULLET_COOLDOWN) {
+      // Now check if there is a slot available.
+      int freeBulletIndex = -1;
+      for (int i = 0; i < MAX_BULLETS; i++) {
+        if (!bullets[i].active){
+          freeBulletIndex = i;
+          break;
+        }
       }
-    }
-    if (freeBulletIndex > -1) {
-      // launch new bullet;
-      float speedRandomizer = random(0,3)/1000.0;
-      bullets[freeBulletIndex].active = true;
-      bullets[freeBulletIndex].speed = 0.002; // + speedRandomizer; // px per millisecond
-      bullets[freeBulletIndex].position.x = player.position.x;
-      bullets[freeBulletIndex].position.y = player.position.y + 1;
-      tone(Buzzer_pin, NOTE_A5, 50);
+      if (freeBulletIndex > -1) {
+        // launch new bullet;
+        player.lastBulletTime = millis();
+        bullets[freeBulletIndex].active = true;
+        bullets[freeBulletIndex].speed = 0.002; // px per millisecond
+        bullets[freeBulletIndex].position.x = player.position.x;
+        bullets[freeBulletIndex].position.y = player.position.y + 1;
+        tone(Buzzer_pin, NOTE_A5, 50);
+      }
     }
   }
 }
