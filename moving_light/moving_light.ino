@@ -50,8 +50,10 @@ bool newBtnState; // true -> pressed, false -> not pressed
 // Refresh interval at which to set our game loop 
 // To avoid having the game run at different speeds depending on hardware
 const int refreshInterval  = 100; // Redraw 10 times per second
-// Used to calculate the delta between loops for a steady frame-rate
-unsigned long lastRefreshTime;
+// When was the last update call?
+unsigned long lastUpdateTime;
+// When was the last render call?
+unsigned long lastRenderTime;
 
 void setup() {
   Serial.begin(57600);
@@ -73,7 +75,8 @@ void setup() {
   player.speed = 0.001;
 
   // initialize game loop
-  lastRefreshTime = millis();
+  lastUpdateTime = millis();
+  lastRenderTime = lastUpdateTime;
 }
 
 void updateGame(unsigned long elapsed) {
@@ -104,8 +107,10 @@ void updateBulletPosition(unsigned long elapsed)
   }
 }
 
-void drawPosition()
+void draw()
 {
+  lc.clearDisplay(0);
+
  /* Set the status of a single Led.
   * Params :
   *   addr  address of the display
@@ -140,7 +145,7 @@ void checkInputs() {
 
 void checkActions() {
   if (newBtnState) {
-    // player pressed button. Check current X position
+    // player pressed button. Check current X position to see if there is already a bullet active
     int column = round(player.position.x);
     
     if (bullets[column].active) {
@@ -158,11 +163,15 @@ void checkActions() {
 
 void loop() {
   unsigned long now = millis();
-  unsigned long elapsed = now - lastRefreshTime; // usually 3-4 ms
+  unsigned long millisSinceLastUpdate = now - lastUpdateTime; // usually 3-4 ms
+  unsigned long millisSinceLastRender = now - lastRenderTime;
   checkInputs();
   checkActions();
-  updateGame(elapsed);
-  lc.clearDisplay(0);
-  drawPosition();
-  lastRefreshTime = now;
+  updateGame(millisSinceLastUpdate);
+  if (millisSinceLastRender < refreshInterval)
+  {
+    draw();
+    lastRenderTime = now;
+  }
+  lastUpdateTime = now;
 }
