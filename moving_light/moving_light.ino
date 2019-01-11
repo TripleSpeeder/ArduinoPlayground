@@ -1,5 +1,6 @@
 #include "LedControl.h"
 #include <Bounce2.h>
+#include "pitches.h"
 
 /*
  Setup LedControl to work with.
@@ -16,6 +17,9 @@ const int JoyBtn_pin = 2; // digital pin connected to switch output
 const int JoyX_pin = 0; // analog pin connected to X output
 const int JoyY_pin = 1; // analog pin connected to Y output
 const Bounce joyBtn = Bounce();
+
+// Buzzer
+const int Buzzer_pin = 8;
 
 // Position
 typedef struct
@@ -41,7 +45,7 @@ typedef struct
   bool active;
   float speed; // pixel per millisecond
 } Bullet;
-const int MAX_BULLETS = 4;
+const int MAX_BULLETS = 6;
 Bullet bullets[MAX_BULLETS];
 
 // store current inputs
@@ -166,13 +170,14 @@ void checkActions() {
       bullets[freeBulletIndex].speed = 0.002 + speedRandomizer; // px per millisecond
       bullets[freeBulletIndex].position.x = player.position.x;
       bullets[freeBulletIndex].position.y = player.position.y + 1;
+      tone(Buzzer_pin, NOTE_A5, 50);
     }
   }
 }
 
 void loop() {
   unsigned long now = millis();
-  unsigned long millisSinceLastUpdate = now - lastUpdateTime; // usually 3-4 ms
+  unsigned long millisSinceLastUpdate = now - lastUpdateTime;
   unsigned long millisSinceLastRender = now - lastRenderTime;
   checkInputs();
   checkActions();
