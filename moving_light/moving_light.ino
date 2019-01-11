@@ -48,6 +48,14 @@ typedef struct
 const int MAX_BULLETS = 6;
 Bullet bullets[MAX_BULLETS];
 
+// a target
+typedef struct
+{
+  Position position;
+  unsigned int width; // pixel
+} Target;
+Target target;
+
 // store current inputs
 Position newPosition;
 int moveX;
@@ -61,7 +69,14 @@ unsigned long lastUpdateTime;
 unsigned long lastRenderTime;
 
 void setup() {
+  // if analog input pin 4 is unconnected, random analog
+  // noise will cause the call to randomSeed() to generate
+  // different seed numbers each time the sketch runs.
+  // randomSeed() will then shuffle the random function.
+  randomSeed(analogRead(4));
+
   Serial.begin(57600);
+
   /*
    The MAX72XX is in power-saving mode on startup,
    we have to do a wakeup call
@@ -79,11 +94,10 @@ void setup() {
   // Setup player
   player.speed = 0.001;
 
-  // if analog input pin 4 is unconnected, random analog
-  // noise will cause the call to randomSeed() to generate
-  // different seed numbers each time the sketch runs.
-  // randomSeed() will then shuffle the random function.
-  randomSeed(analogRead(4));
+  // Setup target
+  target.position.x = 2;
+  target.position.y = 7;
+  target.width = 2;
 
   // initialize game loop
   lastUpdateTime = millis();
@@ -93,6 +107,8 @@ void setup() {
 void updateGame(unsigned long elapsed) {
   updatePlayerPosition(elapsed);
   updateBulletPosition(elapsed);
+  updateTargetPosition(elapsed);
+  detectHit(elapsed);
 }
 
 void updatePlayerPosition(unsigned long elapsed)
@@ -118,25 +134,58 @@ void updateBulletPosition(unsigned long elapsed)
   }
 }
 
+void updateTargetPosition(unsigned long elapsed)
+{
+  // TODO: Move target
+}
+
+void detectHit(unsigned long elapsed)
+{
+  float targetPadding = 0.5;
+  float tXleft = target.position.x - targetPadding;
+  float tXright = target.position.x + target.width - 1 + targetPadding;
+  float tY = target.position.y - targetPadding;
+  
+  // check all bullets if any matches coordinates of target
+  for (int i=0; i < MAX_BULLETS; i++) {
+    if (bullets[i].active) {
+      float bX = bullets[i].position.x;
+      float bY = bullets[i].position.y;
+      Serial.print(bX);
+      Serial.print(" ");
+      Serial.print(tXleft);
+      Serial.print("-");
+      Serial.println(tXright);
+      if ( (bY >= tY) && (bX >= tXleft) && (bX <= tXright)) {
+        // Target hit!
+        Serial.print("Bullet ");
+        Serial.print(i);
+        Serial.println(" hit target!");
+        player.score++;
+        bullets[i].active = false;
+        tone(Buzzer_pin, NOTE_C3, 50);
+      }
+    }
+  }
+}
+
 void draw()
 {
   lc.clearDisplay(0);
 
- /* Set the status of a single Led.
-  * Params :
-  *   addr  address of the display
-  *   row   the row of the Led (0..7)
-  *   col   the column of the Led (0..7)
-  *   state If true the led is switched on, if false it is switched off 
-  *   
-  *   void setLed(int addr, int row, int col, boolean state); 
-  */ 
+  // draw player
   lc.setLed(0, round(player.position.x), round(player.position.y), true);
 
+  // draw bullets
   for (int i=0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       lc.setLed(0, round(bullets[i].position.x), round(bullets[i].position.y), true);
     }
+  }
+
+  // draw target
+  for (int i=0; i < target.width; i++) {
+    lc.setLed(0, round(target.position.x)+i, round(target.position.y), true);
   }
 }
 
