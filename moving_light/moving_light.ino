@@ -51,8 +51,10 @@ Bullet bullets[MAX_BULLETS];
 // a target
 typedef struct
 {
-  Position position;
-  unsigned int width; // pixel
+  Position topLeft;
+  Position bottomRight;
+  float speed;   // pixel per millisecond
+  int direction; // 1 -> right, -1 -> left
 } Target;
 Target target;
 
@@ -95,9 +97,12 @@ void setup() {
   player.speed = 0.001;
 
   // Setup target
-  target.position.x = 2;
-  target.position.y = 7;
-  target.width = 2;
+  target.topLeft.x = 2;
+  target.topLeft.y = 7;
+  target.bottomRight.x = 3;
+  target.bottomRight.y = 7;
+  target.speed = 0.006;
+  target.direction = 1.0; 
 
   // initialize game loop
   lastUpdateTime = millis();
@@ -136,26 +141,31 @@ void updateBulletPosition(unsigned long elapsed)
 
 void updateTargetPosition(unsigned long elapsed)
 {
-  // TODO: Move target
+  float deltaX = target.speed * target.direction * elapsed;
+  target.topLeft.x += deltaX;
+  target.bottomRight.x += deltaX;
+  if (( target.direction > 0 ) && (target.bottomRight.x > 7)) {
+    // change direction
+    target.direction = -1.0;
+  }
+  if (( target.direction < 0 ) && (target.topLeft.x < 0)) {
+    // change direction
+    target.direction = 1.0;
+  }
 }
 
 void detectHit(unsigned long elapsed)
 {
   float targetPadding = 0.5;
-  float tXleft = target.position.x - targetPadding;
-  float tXright = target.position.x + target.width - 1 + targetPadding;
-  float tY = target.position.y - targetPadding;
+  float tXleft = target.topLeft.x - targetPadding;
+  float tXright = target.bottomRight.x + targetPadding;
+  float tY = target.bottomRight.y - targetPadding;
   
   // check all bullets if any matches coordinates of target
   for (int i=0; i < MAX_BULLETS; i++) {
     if (bullets[i].active) {
       float bX = bullets[i].position.x;
       float bY = bullets[i].position.y;
-      Serial.print(bX);
-      Serial.print(" ");
-      Serial.print(tXleft);
-      Serial.print("-");
-      Serial.println(tXright);
       if ( (bY >= tY) && (bX >= tXleft) && (bX <= tXright)) {
         // Target hit!
         Serial.print("Bullet ");
@@ -184,9 +194,12 @@ void draw()
   }
 
   // draw target
-  for (int i=0; i < target.width; i++) {
-    lc.setLed(0, round(target.position.x)+i, round(target.position.y), true);
+  for (int x=(round(target.topLeft.x)); x <= (round(target.bottomRight.x)); x++) {
+    lc.setLed(0, x, round(target.bottomRight.y), true);
   }
+  //for (int i=0; i < target.width; i++) {
+  //  lc.setLed(0, round(target.position.x)+i, round(target.position.y), true);
+  //}
 }
 
 void checkInputs() {
@@ -216,7 +229,7 @@ void checkActions() {
       // launch new bullet;
       float speedRandomizer = random(0,3)/1000.0;
       bullets[freeBulletIndex].active = true;
-      bullets[freeBulletIndex].speed = 0.002 + speedRandomizer; // px per millisecond
+      bullets[freeBulletIndex].speed = 0.002; // + speedRandomizer; // px per millisecond
       bullets[freeBulletIndex].position.x = player.position.x;
       bullets[freeBulletIndex].position.y = player.position.y + 1;
       tone(Buzzer_pin, NOTE_A5, 50);
